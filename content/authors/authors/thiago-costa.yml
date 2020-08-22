@@ -1,10 +1,7 @@
 name: Jun Mao
-bio: |
-  Written by You. This is where your author bio lives. Share your work, your
-  joys and of course, your Twitter handle.
+bio: 专于技，诚于心；则心诚，技亦成。
 featured: false
 avatar: avatars/touxiang.png
 social:
-  - url: https://unsplash.com
-  - url: https://stackoverflow.com
+  - https://stackoverflow.com/users/8951465
   - https://github.com/imaojun
