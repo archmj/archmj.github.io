@@ -3,7 +3,7 @@ title: 博客迁移到Typecho
 author: Jun Mao
 date: 2020-08-22
 excerpt: ""
-hero: images/2030842.png
+hero: images/typecho.png
 ---
 博客平台历经`HEXO`,`HUGO`,`Wordpress``,`GitHub Issues``，使用这些作为博客平台有过不同的体验。但最终我都每有坚持使用下去。目前除了`HEXO`博客托管在`GitLab``网站，以及`GitHub Issues`做为省事的博客平台外。其他博客平台都已经被我下线，结束了他们早期作为我提供博客平台的使命。
 
