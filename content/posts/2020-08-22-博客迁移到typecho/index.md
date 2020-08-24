@@ -1,7 +1,7 @@
 ---
 title: 博客迁移到Typecho
 author: Jun Mao
-date: 2020-08-22
+date: 2020-02-20
 excerpt: ""
 hero: images/typecho.png
 ---
