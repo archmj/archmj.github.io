@@ -3,8 +3,8 @@ bio: 专于技，诚于心；则心诚，技亦成。
 featured: true
 avatar: avatars/touxiang.png
 social:
-  - https://stackoverflow.com
-  - https://github.com
-  - https://github.com
-  - https://github.com
-  - https://github.com
+  - url: https://stackoverflow.com
+  - url: https://github.com
+  - url: https://github.com
+  - url: https://github.com
+  - url: https://github.com
