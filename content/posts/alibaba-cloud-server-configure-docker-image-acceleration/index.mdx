@@ -1,0 +1,45 @@
+---
+title: 阿里云服务器配置docker镜像加速
+date: 2020-02-26 15:55
+slug: "/alibaba-cloud-server-configure-docker-image-acceleration.html"
+tags:
+  - docker
+  - alibaba
+---
+
+在使用阿里云容器构建容器键像时，发现速度非常的慢。拉取一些基础镜像时的速度只有`10`几`KB`，并且经常卡住速度为`0`，将`docker`的镜像源地址修改为:
+```json
+{
+  "registry-mirrors": ["https://registry.docker-cn.com"]
+}
+```
+
+速度依旧是不理想，于是去查询阿里云容器加速相关资料。发现阿里云体格了镜像加速器服务，并且可以免费使用。
+
+登入阿里云[容器镜像服务][1]网站，可以看到如下的控制面板：
+
+![容器镜像服务控制面板][2]
+
+
+### 配置镜像加速器
+根据官方文档给出的配置步骤进行操作：
+![配置加速步骤][3]
+针对`Docker`客户端版本大于`1.10.0`的用户，通过修改`daemon`配置文件`/etc/docker/daemon.json`来使用加速器：
+```bash
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json <<-'EOF'
+{
+  "registry-mirrors": ["https://8jngaj3j.mirror.aliyuncs.com"]
+}
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+根据以上命令配置并重启`docker`服务后，重新进行`docker`镜像构建。发现构建速度明显提升并且拉取镜像速度在`Mb`以上。
+
+(完）
+
+  [1]: https://cr.console.aliyun.com
+  [2]: https://img.maojun.xyz/20022616111582704685.png
+  [3]: https://img.maojun.xyz/20022616241582705462.png

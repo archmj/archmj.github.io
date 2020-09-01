@@ -1,0 +1,100 @@
+---
+title: 不安全的http方法解决办法
+date: 2020-03-19 11:25
+slug: "/web-security-about-insecure-http-method-solutions.html"
+tags:
+  - http
+---
+
+除标准的`GET`和`POST`方法外，`HTTP`请求还使用其他各种方法。许多这类方法主要用于完成不常见或特殊的任务。如果低权限用户可以访问这些方法，他们就能够以此向应用程序实施有效攻击。
+
+以下是一些值得注意的方法：
+
+方法  |	说明
+----  | --------------
+PUT	| 向指定的目录上载文件
+DELETE	| 删除指定的资源
+COPY	| 将指定的资源复制到Destination消息头指定的位置
+MOVE	| 将指定的资源移动到Destination消息头指定的位置
+SEARCH   |	在一个目录路径中搜索资源
+PROPFIND   |	获取与指定资源有关的信息，如作者、大小与内容类型
+TRACE	|  在响应中返回服务器收到的原始请求
+
+
+其中，`SEARCH`、`PROPFIND`等方法属于`HTTP`协议的`WebDAV`（Web-based Distributed Authoring and Versioning）扩展。
+
+查看链接支持访问的`HTTP`方法：
+
+使用`CURL`命令发送`OPTIONS`请求，查看响应头中的`Allow`行,格式：
+
+```bash
+$ curl -I -X OPTIONS https:maojun.xyz
+```
+测试完整例子：
+```bash
+curl -I -X OPTIONS https://maojun.xyz
+HTTP/1.1 200
+Set-Cookie: JSESSIONID=9C07035B354949CAA5A84CF0102E6C9A; Path=/manager; HttpOnly
+Allow: GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS
+Content-Length: 0
+Date: Thu, 19 Mar 2020 02:19:49 GMT
+```
+
+> 返回的`Allow`信息为即为该链接支持的`HTTP`请求方法
+
+可以看到链接暴露了` GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS`等方法，这些`HTTP`请求方法并非所有都在项目中应用到，存在安全隐患。
+
+> 注意:只开放需要的`HTTP`请求方法即可。如果是`restful`风格可以按需要关闭不必要的请求方法
+
+
+## 解决方法
+
+- Apache
+
+修改应用配置文件`httpd.conf`，加入如下配置项：
+
+```conf
+TraceEnable Off
+```
+
+- Nginx
+在你要屏蔽的虚拟主机的server段里加入下面代码：
+```conf
+if ($request_method !~* GET|POST) {
+            return 403;
+        }
+```
+重启nginx，这样就屏蔽`GET`、`POST`、之外的`HTTP`方法
+
+- SpringMVC
+
+`Controlelr`代码中指定`requestMapping`的`http`方法,或者使用`getMapping`接`postMapping`格式
+
+- Tomcat
+编辑`Tomcat`下的`web.xml`(全局应用`Tomcat`下的所有应用）
+或者编辑项目中的`web.xml`（只对当前项目生效），添加如下内容：
+
+```xml
+<security-constraint>
+<web-resource-collection>
+<web-resource-name>forbid</web-resource-name>
+<url-pattern>/*</url-pattern>
+<http-method>PUT</http-method>
+<http-method>DELETE</http-method>
+<http-method>HEAD</http-method>
+<http-method>OPTIONS</http-method>
+<http-method>TRACE</http-method>
+</web-resource-collection>
+<auth-constraint></auth-constraint>
+</security-constraint>
+<login-config>
+<auth-method>BASIC</auth-method>
+</login-config>
+```
+
+> 注意：最好将上面配置放在`web.xml`的末尾位置。
+
+重启 tomcat 即可完成。 以上的代码添加到某一个应用中，也可以添加到`tomcat`对应`conf`目录的`web.xml`中，区别是添加到某一个应用只对某一个应用有效，如 果添加到`tomcat`的`conf`目录下`web.xml`中，则对`tomcat`下所有的应用有效。
+
+（完）
+

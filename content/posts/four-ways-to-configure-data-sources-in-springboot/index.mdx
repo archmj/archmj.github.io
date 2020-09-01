@@ -1,0 +1,257 @@
+---
+title: springboot配置数据源的四种方式
+date: 2020-03-18 12:15
+slug: "/four-ways-to-configure-data-sources-in-springboot.html"
+tags:
+  - springboot
+---
+
+在[Spring使用注解开发][1]中我们基于`spring`注解的方式配置了数据源。使用`spring`注解`value`注入属性文件，存在一定的局限性。如果新增一个类中配置数据源，又需要再次的通过`value`注解注入属性。
+
+如果项目采用了`springboot`作为脚手架，`springboot`的底层已经为我们做了大量的配置。并且sprinboot文件是统一用`application.properties`管理。将数据源信息添加到`applicaton.properties`中：
+
+```properties
+jdbc.driverClassName=com.mysql.cj.jdbc.Driver
+jdbc.url=jdbc:mysql://localhost:3306/community?useUnicode=true&characterEncoding=utf8
+jdbc.username=root
+jdbc.password=123456
+```
+
+增加属性配置类`jdbcProperties.java`,增加属性值：
+
+```java
+@ConfigurationProperties(prefix = "jdbc")
+public class JDBCProperties {
+
+    private String driverClassName;
+    private String url;
+    private String username;
+    private String password;
+
+    public String getDriverClassName() {
+        return driverClassName;
+    }
+
+    public void setDriverClassName(String driverClassName) {
+        this.driverClassName = driverClassName;
+    }
+
+    public String getUrl() {
+        return url;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+}
+```
+
+> `@ConfigurationProperties`注解不能指定配置文件文件位置，默认读取`classpaath`下的`application.propeties`文件。
+> `@ConfigurationProperties(prefix = "jdbc")`注解，指定前缀来对应`application.properties`中的配置信息
+
+`@ConfigurationProperties`是`springboot`提供的资源文件读取注解，所以`springboot`只需要一个配置文件`application.propeties`即可，通过前缀区分不同的配置。无需像`spring`项目一样有那么多的配置文件了。
+
+使用``@ConfigurationProperties`后，`IDEA`会报一个问题：
+```
+Spring Boot Configuration Annotation Processor not configured
+```
+
+在`pom.xml`中添加以下依赖即可解决：
+```xml
+   <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+```
+
+
+写好配置类后，`springboot`有以下几种配置方法注入数据源属性：
+
+## autowired注入
+此注入方式`JDBCProperties.java`**需要**生成`getter`和`setter`。
+
+autowire可以注入时，需要添加注入类的`getter`和`setter`方法，并且属性名称要和`application.properties`中的保持一致。否则会读取不到配置信息。如：
+driverClassName,url,username,password
+
+```java
+   private String driverClassName;
+    private String url;
+    private String username;
+    private String password;
+```
+对应
+```properties
+jdbc.driverClassName=com.mysql.cj.jdbc.Driver
+jdbc.url=jdbc:mysql://localhost:3306/community?useUnicode=true&characterEncoding=utf8
+jdbc.username=root
+jdbc.password=123456
+```
+增加数据源配置类`jdbcConfiguarion.java`,增加以下内容：
+
+```java
+@Configuration
+@EnableConfigurationProperties(JDBCProperties.class)
+public class jdbcConfiguarion {
+
+    @Autowired
+    private JDBCProperties jdbcProperties;
+
+    @Bean
+    public DruidDataSource dataSource(){
+        DruidDataSource dataSource = new DruidDataSource();
+        dataSource.setDriverClassName(this.jdbcProperties.getDriverClassName());
+        dataSource.setUrl(this.jdbcProperties.getUrl());
+        dataSource.setUsername(this.jdbcProperties.getUsername());
+        dataSource.setPassword(this.jdbcProperties.getPassword());
+        return dataSource;
+    }
+}
+```
+
+> 注意:通过`@EnableConfigurationProperties(JDBCProperties.class)`来启用指定配置文件的位置,否则使用`@autowired`会报错无法注入
+> `@EnableConfigurationProperties`可以有多个配置文件(数组),用`,`号隔开即可
+> 用`this`来表示成员变量,提高代码辨识度
+
+
+
+## 构造方法注入
+此注入方式`JDBCProperties.java`**需要**生成`getter`和`setter`。
+
+修改`jdbcConfiguarion.java`类，取消`@autowired`注解，添加构造方法
+```java
+  public JDBCConfiguarion(JDBCProperties jdbcProperties){
+
+        this.jdbcProperties= jdbcProperties;
+    }
+```
+
+```java
+@Configuration
+@EnableConfigurationProperties(JDBCProperties.class)
+public class jdbcConfiguarion {
+
+    private JDBCProperties jdbcProperties;
+
+    public JDBCConfiguarion(JDBCProperties jdbcProperties){
+
+        this.jdbcProperties= jdbcProperties;
+    }
+
+
+
+    @Bean
+    public DruidDataSource dataSource(){
+        DruidDataSource dataSource = new DruidDataSource();
+        dataSource.setDriverClassName(this.jdbcProperties.getDriverClassName());
+        dataSource.setUrl(this.jdbcProperties.getUrl());
+        dataSource.setUsername(this.jdbcProperties.getUsername());
+        dataSource.setPassword(this.jdbcProperties.getPassword());
+        return dataSource;
+    }
+}
+```
+
+
+## 方法形参注入
+此注入方式`JDBCProperties.java`**需要**生成`getter`和`setter`。
+
+在数据源的`@Bean`方法行参中添加之前配置的数据源配置类`JDBCProperties`
+
+```java
+@Configuration
+@EnableConfigurationProperties(JDBCProperties.class)
+public class JDBCConfiguarion {
+
+    @Bean
+    public DruidDataSource dataSource(JDBCProperties jdbcProperties){
+        DruidDataSource dataSource = new DruidDataSource();
+        dataSource.setDriverClassName(jdbcProperties.getDriverClassName());
+        dataSource.setUrl(jdbcProperties.getUrl());
+        dataSource.setUsername(jdbcProperties.getUsername());
+        dataSource.setPassword(jdbcProperties.getPassword());
+        return dataSource;
+    }
+
+
+}
+
+```
+
+
+### 方法上`@ConfigurationProperties`注解注入
+此注入方式`JDBCProperties.java`**不需要**生成`getter`和`setter`。
+
+在对应的`@Bean`方法上添加`@ConfigurationProperties`注解以及取消`@EnableConfigurationProperties(JDBCProperties.class)`注解。
+。同时取消原先`JDBCProperties.java`类上的`@ConfigurationProperties`注解。
+
+```java
+@Configuration
+public class JDBCConfiguarion {
+
+    @Bean
+    @ConfigurationProperties(prefix = "jdbc")
+    public DruidDataSource dataSource(){
+        DruidDataSource dataSource = new DruidDataSource();
+        return dataSource;
+    }
+}
+```
+
+
+通过以上四种方法注入后，新建一个`DataSourceController.java`类，`DEBUGS`方式启动`springboot`项目，在
+```
+            Connection connection = dataSource.getConnection();
+```
+上打个断点，查看断点信息是否有注入数据源的属性值。
+
+```java
+@RestController
+public class DataSourceController {
+
+    @Autowired
+    private DruidDataSource dataSource;
+
+    @GetMapping("hello")
+    public String datasource(){
+        try {
+            Connection connection = dataSource.getConnection();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return "hi";
+    }
+
+}
+```
+
+> 注意可以注入实现类也可以注
+```
+  @Autowired
+   private DataSource dataSource;
+```
+
+如果有属性值则说明注入成功。
+![属性注入][2]
+
+(完）
+
+
+  [1]: https://www.maojun.xyz/archives/spring-uses-annotations-for-development.html
+  [2]: https://img.maojun.xyz/20031813281584509305.png

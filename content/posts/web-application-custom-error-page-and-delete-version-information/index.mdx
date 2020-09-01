@@ -1,0 +1,121 @@
+---
+title: WEB应用自定义错误页面及去除版本信息
+date: 2020-03-22 11:36
+slug: "/web-application-custom-error-page-and-delete-version-information.html"
+tags:
+  - web
+---
+
+服务器使用了系统默认的错误页面， 攻击者可以通过默认错误页面获取应用的版本信息、 从应用的错误信息中提取敏感信息等。
+
+## 解决方案
+为应用自定义 40x、 50x 错误页面。
+
+## Tomcat
+修改`tomcat`的默认`conf/web.xml`或应用的`web.xml`文件， 添加如下内容：
+```xml
+<error-page>
+<error-code>403</error-code>
+<location>/error.html</location>
+</error-page>
+<error-page>
+<error-code>404</error-code>
+<location>/error.html</location>
+</error-page>
+<error-page>
+<error-code>500</error-code>
+<location>/error.html</location>
+</error-page>
+```
+## Apache
+```
+ErrorDocument 500 /errorhtml
+ErrorDocument 404 /error.html
+ErrorDocument 403 /error.html
+```
+
+
+## Nginx
+
+在`conf/nginx.conf`配置文件里增加`server_tokens off;`作用域是`http`,`server`,`location`语句块
+
+
+通过页面自定义错误页面，这种只会去除`html`页面版本信息，但是软件版本依旧可以通过探针获取到。可以在软件层面配置隐藏版本信息：
+
+## Nginx
+
+- Nginx修改源码编译隐藏
+1. 修改src/core/nginx.h（Nginx内部名称的）
+```conf
+#define NGINX_VERSION      "1.12.0"
+#define NGINX_VER          "nginx/" NGINX_VERSION
+```
+去掉版本号并把nginx修改成大写（可以任意）
+```
+#define NGINX_VERSION      ""
+#define NGINX_VER          "NGINX/" NGINX_VERSION
+```
+2. 修改src/http/ngx_http_header_filter_module.c（HTTP ResponseHeader）
+
+```conf
+static char ngx_http_server_string[] = "Server: nginx" CRLF;
+```
+
+```conf
+static char ngx_http_server_string[] = "Server: NGINX" CRLF;
+```
+
+3. 修改src/http/ngx_http_special_response.c（修改错误页的底部Footer）
+
+static u_char ngx_http_error_tail[] = 下的nginx信息（可以任意）
+```
+static u_char ngx_http_error_tail[] =
+"<hr><center>nginx</center>" CRLF
+"</body>" CRLF
+"</html>" CRLF
+;
+```
+同样改成大写（可以任意）
+```
+static u_char ngx_http_error_tail[] =
+"<hr><center>NGINX</center>" CRLF
+"</body>" CRLF
+"</html>" CRLF
+;
+```
+> 添加 server_tokens off; 参数的时候，调用的是 src/http/ngx_http_header_filter_module.c 里的值
+不添加的时候，显示版本号调用的是 src/core/nginx.h 里的值
+- 修改错误信息
+1. fastcgi_intercept_errors 配置方式
+这是做正向代理的配置:
+
+```conf
+# 定义错误页面码，如果出现相应的错误页面码，转发到那里。
+fastcgi_intercept_errors on;
+error_page  404 403 500 502 503 504  /404.html;
+
+# 承接上面的location。
+
+location = /404.html {
+
+# 放错误页面的目录路径。
+
+root   /usr/share/nginx/html;
+
+}
+```
+2. proxy_intercept_errors配置方式
+适合反向代理的配置：
+
+```conf
+proxy_intercept_errors on;
+error_page    404  /404.html;
+
+location = /404.html {
+
+root   /usr/share/nginx/html;
+
+}
+```
+
+(完）

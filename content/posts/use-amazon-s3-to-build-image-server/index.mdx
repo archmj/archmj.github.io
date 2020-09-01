@@ -1,0 +1,150 @@
+---
+title: 使用Amazon S3搭建图床
+date: 2020-03-07 17:03
+slug: "/use-amazon-s3-to-build-image-server.html"
+tags:
+  - amazon s3
+---
+
+在[使用backblaze-B2搭建自己的图床][1]中我们使用`backblaze-B2`(后面简称`B2`）搭建了自己的图床。但是如果只在`B2`上托管图片服务器，虽然`B2`官网宣称`99.99999%`的可靠率。但是我们也要预防那`0.00001%`的风险，防止[摩菲定率][2]事故。
+
+为了避免图床的单点故障，所以将这次将选择业界主流的`Amazon S3`(后面简称`S3`)作为`B2`图床的备份选择。
+
+点击`S3`的[官方网站][2]进入`S3`的介绍页面（这里是国际版的`S3`）:
+![amazon s3介绍页面][3]
+
+点击**get started with Amazon S3**按钮进入登入页面：
+
+根据页面提示选择登入，如果没有账号可以先注册一个。这里选择用**Root user**登入，`Root`账号拥有最高的权限：
+
+![s3登入界面][4]
+
+登入后进入`S3`的控制台界面：
+
+![s3控制台][5]
+
+进入后点击**Create bucket**创建一个**bucket**(桶）:
+
+![创建bucket][6]
+
+- bucket name:填写桶名称
+- region:选择地区
+- copy settings...:如果已经有桶则可以复制原先桶的配置
+
+> 注意:桶名称最好选择你将来图片服务器的地址比如:img.maojun.xyz
+> 后期做域名绑定的时候是用这个桶名称做为图片服务自定义域名。
+> 地区选择离网站服务人群最近的地址即可。
+
+配置完`bucket`信息后然后点击**Next**进入下一步:
+
+![桶配置选项][7]
+
+这步是桶的选项设置，比如版本信息，服务访问日志，标签等。这里可以按需要配置，做为图片备份服务器默认即可。点击**Next**进入下一步：
+
+![权限设置][8]
+
+在这一步，可以配置`bucket`的权限。默认是禁止所有公有访问。这一步可以先保持默认，后期可以进行修改。继续点击**Next**进入下一步：
+
+![预览配置][9]
+
+最后一步进行之前的`bucket`配置预览，确认后点击**Create bucket**进行创建`bucket`。
+
+创建完`bucket`点击刚才创建的`bucket`名称进入`bucket`的的管理界面：
+
+![桶管理界面][10]
+
+在`bucket`管理界面，我们就可以进行文件上传了。可以点击**Upload**按钮进行上传。
+
+![上传图片][11]
+
+上传图片后点击**Next**进入下一步:
+
+![权限设置][12]
+
+使用默认的权限配置然后点击**Next**进入下一步：
+
+![选择存储类型][13]
+
+选择默认的存储类型，适合经常访问文件资源。如果只是做为冷备份使用，可以选择**Glacier**存储类型，价格更低实惠。
+
+点击**Next**进入下一步，进入预览界面，点击**Upload**按钮进行图片上传。上传成功后即可以在`bucket`管理界面看到上传的图片了：
+
+![图片列表][14]
+
+点击图片的名称，会进入图片的信息界面：
+![请输入图片描述][15]
+
+点击**Object URL**下面的链接，即可查看上传的图片：
+
+![图片访问][16]
+
+但是发现被拒绝访问了。原因是前面设置`bucket`的权限时，默认选择的是禁止所有共有访问。所以需要调整`bucket`的访问策略：
+
+![访问权限][17]
+
+取消打钩下面的拦截策略。
+- **Block public access to buckets and objects granted through new public bucket or access point policies**
+- **Block public access to buckets and objects granted through new public bucket or access point policies**
+
+通过设置**Permissions**下的**Bucket Policy**策略：
+
+ ```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PublicReadGetObject",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::test.maojun.xyz/*"
+        }
+    ]
+}
+```
+> 注意：修改**Resource**值为自定义的`bucket`名称
+
+![定义策略][18]
+
+设置好以上的`bucket`的权限和策略后，再次访问图片地址查看：
+
+![查看头像][19]
+
+### 绑定域名
+以`Cloudflare`的`DNS`解析为例，绑定通过`CNAME`绑定自定义二级域名到`S3`的图片路径，如果图片的地址是：[https://s3.ap-northeast-2.amazonaws.com/test.maojun.xyz/touxiang.png][20]
+
+只需要取`bucket`名称前面的地址即可，即：**s3.ap-northeast-2.amazonaws.com**
+
+![绑定域名][21]
+
+绑定自定义域名后，将上面的图片地址前缀替换成自定义域名，同时不需要携带`bucket`的名称，直接**自定义域名拼接上图片名称**即可访问:
+
+![自定义域名图片路径][22]
+
+搭建完`S3`的图床后，就可以和[使用backblaze-B2搭建自己的图床][1]组成图床集群了，目前`S3`和`B2`的图床数据是不同步的，将在后续的文章介绍通过上传图片到`B2`图床然后自动同步到`S3`，实现图床**双机备份**的效果。
+
+（完）
+
+
+  [1]: https://www.maojun.xyz/archives/build-your-own-image-server-with-backblaze-b2.html
+  [2]: https://aws.amazon.com/s3/
+  [3]: https://img.maojun.xyz/20030717301583573421.png
+  [4]: https://img.maojun.xyz/20030717361583573779.png
+  [5]: https://img.maojun.xyz/20030717501583574627.png
+  [6]: https://img.maojun.xyz/20030717541583574867.png
+  [7]: https://img.maojun.xyz/20030718091583575781.png
+  [8]: https://img.maojun.xyz/20030718121583575945.png
+  [9]: https://img.maojun.xyz/20030718151583576104.png
+  [10]: https://img.maojun.xyz/20030718201583576436.png
+  [11]: https://img.maojun.xyz/20030718231583576627.png
+  [12]: https://img.maojun.xyz/20030719201583580035.png
+  [13]: https://img.maojun.xyz/20030719221583580129.png
+  [14]: https://img.maojun.xyz/20030719251583580340.png
+  [15]: https://img.maojun.xyz/20030719281583580480.png
+  [16]: https://img.maojun.xyz/20030719301583580647.png
+  [17]: https://img.maojun.xyz/20030719321583580753.png
+  [18]: https://img.maojun.xyz/20030719441583581444.png
+  [19]: https://img.maojun.xyz/20030719451583581530.png
+  [20]: https://s3.ap-northeast-2.amazonaws.com/test.maojun.xyz/touxiang.png
+  [21]: https://img.maojun.xyz/20030720001583582439.png
+  [22]: https://img.maojun.xyz/20030720021583582525.png

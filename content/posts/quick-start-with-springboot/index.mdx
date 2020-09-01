@@ -1,0 +1,148 @@
+---
+title: 快速入门SpringBoot
+date: 2020-03-09 21:35
+slug: "/quick-start-with-springboot.html"
+tags:
+  - springboot
+---
+
+SpringBoot是spring的脚手架，可以简化spring开发，无需编写`xml`文件。
+
+
+`SpringBoot`的特性有
+- 内嵌应用服务器
+- 简化构建配置
+- 自动配置`spring`和第三方库。
+- 提供安全指标、运行状况监测和外部化配置等企业级功能。
+- 不需要`XML`配置。
+
+
+搭建`SpringBoot`项目有多种方式：
+
+- 从`Maven`构建
+- 从`Gradle`构建
+- 从`start.spring.io`构建
+
+### maven构建SpringBoot
+
+使用`Maven`构建一个普通的`SpingBoot`项目，添加如下的`maven`依赖：
+```xml
+ <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.0.6.RELEASE</version>
+    </parent>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+    </dependencies>
+```
+
+编写如下的`java`代码：
+```java
+@RestController
+@EnableAutoConfiguration
+public class HelloWorld {
+
+    @GetMapping("hello")
+    public String helloWorld() {
+        return "hello world";
+    }
+
+    public static void main(String[] args) {
+        SpringApplication.run(HelloWorld.class, args);
+    }
+
+}
+```
+
+运行`main`方法，打开地址`http://127.0.0.1:8080`,使用路径`/hello`访问，浏览器返回**hello world**内容即`Mavne`构建`SpringBoot`项目成功。
+
+
+#### 优化`Maven`项目
+上面的代码存在一个问题，如果有多个`controller`就需要创建多个启动器才行，但是多个启动器是不能共用一个`8080`端口的。为了解决这个问题，可以将上面的启动器代码提取出来，成我一个公共的全局启动器。
+
+新建一个同包名统计的`SpringBootMain`.增加全局引导代码：
+
+```java
+@EnableAutoConfiguration
+public class SpringBootMain {
+
+    public static void main(String[] args) {
+        SpringApplication.run(SpringBootMain.class, args);
+    }
+}
+```
+
+同时精简掉原先的`HelloWorld`类：
+
+```java
+@RestController
+public class HelloWorld {
+
+    @GetMapping("hello")
+    public String helloWorld() {
+        return "hello world";
+    }
+}
+```
+
+再次启动并访问`http://127.0.0.1:8080/hello`,结果并没有返回我们需要的内容。而是返回了错误页面**Whitelabel Error Page**。注意当使用`spring`构建项目时是用`xml`配置注解扫描`<context:component-scan />`来扫描类包下注解。`SpringBoot`简化了配置文件，当时需要使用注解扫描即：`@ComponentScan`。
+
+添加`@ComponentScan`注解包扫描：
+```java
+@EnableAutoConfiguration
+@ComponentScan
+public class SpringBootMain {
+
+    public static void main(String[] args) {
+        SpringApplication.run(SpringBootMain.class, args);
+    }
+}
+```
+
+重新启动项目并访问，这次就可以正常返回值了。
+
+#### 优化注解
+
+在使用上面的注解完成测试后，我们就可以简化下注解，将多个注解使用一个组合注解替换。比如`@RestController`就是一个组合注解,包含了
+- `@Controller`
+- `@ResponseBody`
+
+使用组合可以简化代码，所以将上面的
+
+- `@EnableAutoConfiguration`
+- `@ComponentScan`
+替换成组合注解`SpringBootApplication`:
+
+```java
+@SpringBootApplication
+public class SpringBootMain {
+
+    public static void main(String[] args) {
+        SpringApplication.run(SpringBootMain.class, args);
+    }
+}
+```
+
+
+
+发现`@SpringBootApplication`除了包括上面的两个注解外，还涵扩了以下注解：
+
+- `@Target({ElementType.TYPE})`
+- `@Retention(RetentionPolicy.RUNTIME)`
+- `@Documented`
+- `@Inherited`
+- `@SpringBootConfiguration`：配置项
+- `@EnableAutoConfiguration`：自动配置
+- `@ComponentScan`：注解扫描
+
+
+实际上`SrpingBoot`的底层是用的`Java`的注解，使用`Java`的注解替我们做了大量的底层自动配置。
+SpringBoot内部对大量的第三方库或Spring内部库进行了默认配置，这些配置是否生效，取决于我们是否引入了对应库所需的依赖，如果有那么默认配置就会生效。
+
+所以，我们使用SpringBoot构建一个项目，只需要引入所需依赖，配置就可以交给SpringBoot处理了。
+

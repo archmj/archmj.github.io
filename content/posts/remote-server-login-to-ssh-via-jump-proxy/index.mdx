@@ -1,0 +1,123 @@
+---
+title: 远程服务器通过跳板机登入ssh
+date: 2020-03-04 19:58
+slug: "/remote-server-login-to-ssh-via-jump-proxy.html"
+tags:
+  - ssh
+---
+
+公司的服务器因为安全原因是不能通过外网直接访问，登入服务器要经过[跳板机（堡垒机）][1]中转。公司的服务器提供了两种方式访问：
+1. 通过堡垒机页面申请访问权限然后调用本地`ssh`客户端登入到服务器。
+2. 通过跳板机访问
+
+由于页面跳板机申请登入需要使用到账号密码，公司为了提高安全每次通过页面申请的服务器访问时长不能超过`15`天。授权到期要重新申请。服务器由于需要长期使用，重复申请会显得麻烦。虽然可以通过脚本自动申请，但是在灵活上有缺陷，如申请`1`台或者多台需要调整脚本。并且页面申请有个缺陷就是申请页面必须连接`VPN`，而`VPN`只支持`Windows`的客户端。对我这种使用`GNU/Linux`的用户又不想每次开虚拟机申请就显得无能为力了。
+
+为了让访问服务器变得更加高效方便，决定使用跳板机的方式访问服务器。
+
+![跳板机连接服务器][2]
+
+上面的图中:
+- 笔记本可以访问跳板机
+- 跳板机可以访问服务器
+- 笔记本不能访问服务器
+
+跳板机正如它的名字一样，可以给笔记本连接服务器提供一个跳板。本地主机A可以直接访问B主机，但是无法访问C主机，B主机可以访问C主机。可以通过将B主机作为主机A的跳板机来访问C主机。
+
+公司提供了跳板机的账号密码，为了避免每次输入账号密码以及提高登入的安全性。我将配置生成公钥并上传到跳板机后面就无需输入账号密码了。通过`ssh-keygen`命令直接一路回车生成的两个文件：
+- 公钥文件 `~/.ssh/id_rsa.pub`
+- 私钥文件 `~/.ssh/id_rsa`
+
+生成的公钥通过以下的命令上传到跳板机:
+```bash
+$ ssh-copy-id  -i /etc/.ssh/id_rsa user@jumpIP
+```
+> user@jumpIP替换为跳板机实际的用户和地址
+> 如果出现`bash: sh-copy-id: command not found`，则安装`openssh-clients`解决
+
+
+上传公钥后，就可以尝试免密登入了:
+```bash
+$ ssh user@jumpIP
+```
+
+完成跳板机的配置后就完成了一半的工作了。如果现在直接通过跳板机访问远程服务器的话是需要远程服务器的账号密码的。由于远程服务器的密码由于安全原因能不能使用了。这里可以采用`2`种方法将本地的公钥上传到远程的服务器。
+1. 借助页面堡垒机登入到`sftp`，然后将本地之前生成的公钥追加到远程服务器的`~/.ssh/authorized_keys`文件中。
+2. 借助跳板机，先将公钥上传到跳板机，再通过跳板机追加到远程服务器的`~/.ssh/authorized_keys`文件中。
+
+配置完远程服务器的公钥后，就可以实现本机通过跳板机访问服务器免密登入了:
+
+```bash
+$ ssh -J user@jumpIP user@remoteIP
+```
+> `jumpIP`为跳板机，`remoteIP`为远程目的服务器
+> `ssh`的`-J`参数用来指定跳板机，后面空格然后再跟上远程服务器
+
+
+带端口例子:
+```bash
+$ ssh -J user@jumpIP:port user@remoteIP:port
+```
+
+如果有多个跳板机，同单跳板机使用`-J`参数，之间用逗号`,`分隔
+
+```sh
+$ ssh -J user@jumpIP1:port,user@jumpIP2:port user@remoteIP:port
+```
+
+通过以上的过程就可以通过跳板机访问远程服务器了。但是如果有多个远程服务器需要访问，通过命令行键入就会显得非常的麻烦，并且难于记忆和管理。所以通过`ssh`的`config`文件将以上信息管理起来。
+
+编辑`~/.ssh/config`文件:
+
+上面的`ssh -J user@jumpIP:port user@remoteIP:port`就可以通过以下的配置进行管理:
+```bash
+# 跳板机
+Host jump
+    HostName jumpIP
+    User user
+    Port 22
+    IdentityFile ~/.ssh/id_rsa
+
+# 远程服务器
+Host remote
+    HostName remoteIP
+    Port 22
+    User user
+    IdentityFile ~/.ssh/id_rsa
+    ProxyCommand ssh jump -W %h:%p
+```
+> - Host:定义一个名称
+- HostName:定义服务器的地址
+- User:定义服务器的用户名
+- Port:定义服务器的端口
+- IdentityFile:定义公钥位置
+- proxyCommand:定义代理命令
+- `W`参数:通过`jump`服务器建立隧道连接
+
+如果有远程服务器要通过多少跳板机才能访问，可以通过`ssh`的配置文件config`中的`ProxyJump`来指定跳板机(`openssh>=7.3`)。
+
+```bash
+# 跳板机1
+Host jump1
+    HostName jumpIP1
+    User user
+    Port 22
+    IdentityFile ~/.ssh/id_rsa
+
+# 跳板机2
+Host jump2
+    HostName jumpIP2
+    User user
+    Port 22
+    IdentityFile ~/.ssh/id_rsa
+
+Host remote
+  HostName remoteIP
+  ProxyJump jump1,jump2
+```
+配置完成后就可以直接通过`ssh remote`进行登入，会先经过跳板机`jump1`，然后经过跳板机`jump2`并登入到`remote`服务器。
+
+（完）
+
+
+  [1]: https://wiki.maojun.xyz/#%E8%B7%B3%E6%9D%BF%E6%9C%BA
+  [2]: https://img.maojun.xyz/20030420201583324456.png

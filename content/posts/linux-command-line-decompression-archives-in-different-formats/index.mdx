@@ -1,0 +1,61 @@
+---
+title: linux命令行解压不同格式的压缩包
+date: 2020-03-15 21:32
+slug: "/linux-command-line-decompression-archives-in-different-formats.html"
+tags:
+  - linux
+---
+
+不同的文件需要不同的解压命令，就一起来看看不同格式的解压命令吧。
+
+## 解压`.zip` 格式文件：
+```sh
+$ unzip filename.zip
+```
+
+## 解压` .gz`格式文件：
+
+```sh
+$ gunzip filename.gz
+```
+解压` .tar` 格式文件：
+
+```sh
+$ tar -xvf filename.tar
+```
+
+## 解压` .tar.gz`格式文件：
+
+```sh
+$ tar -xzf filename.tar.gz
+```
+## 解压 `.tar.xz`格式文件：
+
+```sh
+$ tar -xJf filename.tar.xz
+```
+## 解压` .tar.bz2`格式文件：
+
+```sh
+$ tar -xjf filename.tar.bz2
+```
+最新版本的`tar`工具可以自动判断后缀，所以可以简写成：
+
+```sh
+$ tar -xf filename.tar.gz
+```
+
+## 解压` .7z`格式文件：
+
+```sh
+$ 7z x filename.7z
+```
+## 解压` .rar`格式文件：
+
+可以通过`7z`或`unrar`解压：
+
+```sh
+$ 7z x filename.rar         # Using 7zip
+$ unrar x filename.rar      # Using Unrar
+```
+> 7z的解压可以命令可以通用以上所有压缩格式
