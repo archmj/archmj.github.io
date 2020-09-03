@@ -1,0 +1,60 @@
+---
+title: Tomcat的部署项目的三种方式
+date: 2020-03-23 10:40
+slug: "/blog-migration-to-typechoe.html"
+tags:
+  - tomcat
+---
+
+开发完`Java`项目后，需要打包成`War`包并放入到`Servlet`容器目录中运行，常见开源免费`Servlet`容器有`Tomcat`和`Jetty`。企业级`Servlet`容器目前以`Tomcat`为市场主流，常规部署`Java`项目是将`War`包拷贝到`Tomcat`程序下的`webapps`目录，tomcat的目录结构如下：
+
+```bash
+tomcat
+├── bin
+├── BUILDING.txt
+├── conf
+├── CONTRIBUTING.md
+├── lib
+├── LICENSE
+├── logs
+├── NOTICE
+├── README.md
+├── RELEASE-NOTES
+├── RUNNING.txt
+├── temp
+├── webapps
+└── work
+```
+
+除了将项目部署到`webapps`目录外，还可以将项目部署到任意的目录，指定项目路径即可。比如将项目部署到`/app/war`目录下，有两种方式可以指定文件位置。
+
+## server.xml
+
+在`conf/server.xml`中配置，在`<Host>`标签体内添加如下内容：
+
+```xml
+<Context docBase="/app/war" path="/test" />
+```
+> docBase:项目路径，可以是war解压后的文件夹或者war包（会自动解压）
+> path:项目的虚拟路径（web访问前需要添加虚拟路径）
+
+在`conf/server.xml`中配置了项目文件位置后，重启即可读取到配置。
+
+## Catalina/localhost
+
+在`conf/Catalina/localhost`下新建一个`test.xml`,该文件名即为项目访问时的虚拟路径，并在文件中添加如下内容：
+
+```xml
+<Context docBase="/app/war" />
+```
+> 注意，不需要配置`path`，新建的`test.xml`中的`test`即为虚拟访问路径。
+
+## 总结
+
+`Tomcat`可以在`webapps`部署项目;`conf/server.xml`中配置项目所在位置;`conf/Catalina/localhost/new.xml`配置项目所在位置。
+
+如果是一个项目中部署多个项目，更加推荐在`conf/Catalina/localhost`下新建配置文件，这种方式支持`Tomcat`的热加载部署，无需重启。
+
+（完）
+
+

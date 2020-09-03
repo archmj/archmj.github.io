@@ -1,0 +1,242 @@
+---
+title: Java应用迁移到Docker的部署方案
+date: 2020-03-24 21:40
+slug: "/java-application-migration-to-docker-deployment-scheme.html"
+tags:
+  - java
+---
+
+  近些年容器技术非常流行，可以解决环境上的问题。让不同的应用之间环境隔离，不会冲突。在团队开发中，使用容器技术可以统一团队成员之间的环境问题，不用担心我本地可以，测试和生产不行的问题了。
+
+容器技术目前主流的是以`docker`为代表，这里就介绍下将原有的老项目迁移到`docker`的方案。当然最简单的就是直接迁移`docker`不考虑管理和编排。
+
+## docker安装
+
+`docker`针对不同的`GNU/Linux`发型版有不同的安装方法，下面以`REHL/CentOS`为示例安装：
+
+> 注意：`Docker`对`Linux`内核版本的最低要求是`3.10`（请先查看内核版本,命令：`uname -r`
+> 注意以下部分命令需要`sudo`权限（取决你是普通用户），如果是root用户无需添加sudo.
+
+检查docker是否已经安装：
+
+```sh
+$ sudo docker -v
+```
+> 如果有输出docker版本信息，则可以跳过安装步骤
+
+安装依赖包：
+```sh
+$ sudo yum install -y yum-utils \
+  device-mapper-persistent-data \
+  lvm2
+```
+添加docker稳定版本源：
+```sh
+$ sudo yum-config-manager \
+    --add-repo \
+    https://download.docker.com/linux/centos/docker-ce.repo
+```
+
+安装docker最新版：
+```sh
+$ sudo yum install docker-ce -y
+```
+
+启动docker服务：
+```sh
+$ sudo systemctl start docker
+```
+
+验证docker是否可用。
+
+```sh
+$ sudo docker run hello-world
+```
+
+有如下信息则说明docker已经安装成功并且服务正常
+
+```sh
+Unable to find image 'hello-world:latest' locally
+latest: Pulling from library/hello-world
+1b930d010525: Pull complete
+Digest: sha256:d1668a9a1f5b42ed3f46b70b9cb7c88fd8bdc8a2d73509bb0041cf436018fbf5
+Status: Downloaded newer image for hello-world:latest
+
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+
+To generate this message, Docker took the following steps:
+ 1. The Docker client contacted the Docker daemon.
+ 2. The Docker daemon pulled the "hello-world" image from the Docker Hub.
+    (amd64)
+ 3. The Docker daemon created a new container from that image which runs the
+    executable that produces the output you are currently reading.
+ 4. The Docker daemon streamed that output to the Docker client, which sent it
+    to your terminal.
+
+To try something more ambitious, you can run an Ubuntu container with:
+ $ docker run -it ubuntu bash
+
+Share images, automate workflows, and more with a free Docker ID:
+ https://hub.docker.com/
+
+For more examples and ideas, visit:
+ https://docs.docker.com/get-started/
+```
+
+
+docker命令每次加sudo很烦，不加权限不够.
+将用户加入docker用户组（docker会自动创建docker组)
+
+```sh
+$ sudo usermod -aG docker $USER
+```
+> 重新登入ssh或者新建终端生效
+
+
+## 常用docker命令
+提供以下常用docker命令方便维护容器。
+
+查看正在运行的容器：
+
+```sh
+$ docker ps
+```
+
+查看已经停止的容器：
+
+```sh
+$ docker ps -ak
+```
+
+停止正在运行的容器：
+```sh
+$ docker stop 容器名称
+```
+
+启动已经停止的容器：
+```sh
+$ docker start 容器名称
+```
+> 注意，不一定可以启动成功。如果启动失败，请检查日志并分析原因。
+
+查看容器日志
+
+```sh
+$ docker logs -f 容器名称
+```
+
+
+## 单机部署迁移
+此方案适合单服务器项目，如果是多服务器容器集群。需要用到容器编排服务,如`docker-compose`或`docker swarm`或者`k8s`。
+由于公司项目的`tomcat`服务一般不暴露外网访问，前面有`nginx`反向代理。所以可以采用单机部署方案。
+如果是`nginx`集群则不能使用单机部署方案，存在跨服务器容器之间无法通信问题，需要采用容器编排工具进行编排。
+
+迁移`tomcat`服务到`docker`容器进行测试：
+需要复制的内容(
+- `conf`下的`context.xml`,和`server.xml`
+- `bin`下的`catalina.sh`(JVM参数配置）
+
+
+虽然单机部署可以使用`docker run --name tomcat`这种方式，但是这种方式不利于维护和后期扩展。
+所以建议将配置写到配置文件中。
+
+### 安装docker-compose
+
+本地或者测试环境使用`docker-compose`做为容器编排工具。
+生产环境请使用`docker-swarm`或者`k8s`。
+
+下载`docker-compose`：
+```sh
+$ sudo curl -L "https://github.com/docker/compose/releases/download/1.25.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+```
+
+设置可执行权限：
+```sh
+$ sudo chmod +x /usr/local/bin/docker-compose
+```
+
+创建快捷方式:
+```sh
+sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+```
+检查是否安装成功：
+```sh
+$ docker-compose --version
+```
+如果有输出docker-compose版本信息则安装成功。
+
+
+#### 编写配置及启动
+
+编写hhr的配置文件：
+```yml
+ersion: '3'
+services:
+  tomcat:
+    # 主机名称
+    hostname: hhr-tomcat
+    # 容器名称
+    container_name: hhr-tomcat
+    # 指定镜像版本
+    image: tomcat:8.5.50
+    # 映射端口
+    ports:
+      - 9093:8080
+
+    volumes:
+        # 映射war包目录
+      - /app/docker/hhr/tomcat/webapps/:/usr/local/tomcat/webapps/
+        # 映射context.xml
+      - /app/docker/hhr/tomcat/conf/context.xml:/usr/local/tomcat/conf/context.xml
+        # 映射server.xml
+      - /app/docker/hhr/tomcat/conf/server.xml:/usr/local/tomcat/conf/server.xml
+        # 映射logs目录
+      - /app/docker/hhr/tomcat/logs/:/usr/local/tomcat/logs/
+        #映射catalina.sh
+      - /app/docker/hhr/tomcat/bin/catalina.sh:/usr/local/tomcat/bin/catalina.sh
+        # 映射config目录
+      - /app/docker/hhr/tomcat/bin/config:/usr/local/tomcat/config
+    restart: always
+```
+> 注意以上映射文件里面的内容，里面的地址一定要修改成容器里面的路径而不是本机的路径，docker里面的tomcat读取的路径是docker里面的
+> volumes冒号分隔的前面部分就是本地映射目录，冒号后面的对应容器里面的目录地址
+> ports为本地和容器之间的端口映射，注意容器后面的8080应该对应tomcat配置文件中的启动端口
+
+在启动docker-compose之前，将本地映射目录的目录和文件创建好（如果先启动容器则会自动创建对应的目录）
+
+
+
+
+创建映射目录后，开始启动。
+进入`docker-compose.yml`的文件目录，在终端输入以下命令启动：
+```sh
+$ docker-compose up
+```
+> 注意，这是以控制台方式启动方便看日志。按ctrl-c会中断停止服务。
+
+如果想以后台启动服务则使用命令：
+
+```sh
+$ docker-compose up -d
+```
+> 强烈推荐这种，docker-compose up中断后会自动删除容器的
+
+先后台启动然后再查看日志,
+```sh
+
+$ docker logs -f 容器名称
+```
+
+查看日志信息没问题后，就可以通过地址访问了，注意访问的时候要通过映射的端口访问。上面映射的是9093，所以访问的地址也是9093。
+
+
+成功部署一台到服务器后，就可以把其余服务器也部署了，方法有好几种:
+- 将当前容器打包成镜像，上传到`docker`的仓库，然后其他服务器使用`docker pull`再运行就可以 了。由于`dockerhub`免费账号仓库只能是公开的，所以除非自己搭建私服。不然不建议这种方式。
+
+- 将`docker-compose.yml`复制到其他服务器，然后直接`docker-compose up -d`同样的也启动成功了。
+> 推荐，映射目录也要同上先创建好
+
+- 将`docker`容器打包成压缩包，复制到其他服务器，使用`docker`命令解压运行即可。
+
+(完）

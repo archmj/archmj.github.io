@@ -1,0 +1,185 @@
+---
+title: Kubernetes单节点主从版安装及快速入门
+date: 2020-03-27 23:39
+slug: "/kubernetes-single-node-master-slave-installation-and-quick-start.html"
+tags:
+  - k8s
+---
+
+上一篇[应用迁移到docker的部署方案](https://www.maojun.xyz/archives/java-application-migration-to-docker-deployment-scheme.html)介绍了将应用迁移到docker的方案,但是单纯的迁移到docker面临着许多问题：
+- 容器跨主机之间通信问题
+- 容器的编排问题
+- 容器弹性伸缩问题
+- ....
+
+docker是容器技术的一种实现方案，同时`docker`也是**docker**公司的一个产品。目前主流的容器技术是以`docker`技术为标准之上的。使用`docker`可以无需考虑环境问题，docker可以一次构建，到处运行。
+
+如果有很多容器需要管理，单纯使用docker命令来手动管理容器就会显得非常的麻烦，并且容易出错。docker公司提供了`docker-compose`和内置`docker`中的`docker-swarm`来编排服务。使用`docker`公司提供的编排工具对于中小项目实际上已经足够，但是对于大型分布式应用而言，仅仅对容器编排是不够的。我们需要更强大的功能来管理容器，并且除了`docker`这个容器实现技术之外的其他容器也是需要编排管理。这是基于`docker`自身提供的工具就有些力不从心了，而我们又不想自己动手开发。有没有其他容器编排工具呢？
+
+这里就叫介绍下大名鼎鼎并且成熟的容器编排工具Kubernetes(K8S)了。
+为什么大名鼎鼎？
+K8S源于谷歌开源，背靠大树好乘凉。
+
+为什么成熟？
+K8S是谷歌公司在2014年开源的产品。按理说到现在（2020）时间并不太长。这是应为K8S是基于谷歌公司内部容器技术的分布式架构方案`Brog`。`Brog`已经在谷歌内部服役十几年了。
+
+
+为什么使用K8S？
+
+基于以上两点，加之K8S活跃的社区和大量的K8S插件生态。K8S可以满足在分布式环境中运行应用大部分需求：
+
+- 存储系统挂载
+- Distributing secrets
+- 应用健康检测
+- 应用实例的复制
+- Pod自动伸缩/扩展
+- Naming and discovering
+- 负载均衡
+- 滚动更新
+- 资源监控
+- 日志访问
+- 调度应用程序
+- 提供认证和授权
+
+
+### 单机板主从部署
+
+#### 环境准备
+- Centos 7.xx
+
+K8S的安装方式有很多：
+- 官方脚本和社区脚本工具
+- 包管理安装
+- 二进制包安装
+
+### 包管理安装
+为了快速搭建K8S和入门介绍，这里采用包管理的方式安装。在安装前最好更新下软件包的源到最新版本。
+
+```sh
+$ sudo yum -y update
+```
+
+由于K8S包管理中默认包含了docker，如果机器上已经安装过docker,请先卸载docker，不然安装k8s时会提示包冲突而无法安装成功。
+
+卸载可能会导致冲突的docker(如果没有安装docker可以跳过）
+```sh
+$ sudo yum -y remove docker-ce docker-ce-cli
+```
+
+安装K8S和etcd
+
+```sh
+$ sudo yum -y install kubernetes etcd
+```
+
+安装完后如果没有报错，开始启动服务。
+
+
+```sh
+$ sudo systemctl start etcd # 启动etcd服务
+$ systemctl status etcd # 查看etcd服务
+$ sudo systemctl start docker # 启动docker服务
+$ sudo systemctl status docker # 启动docker服务
+# 启动k8s相关服务
+$ sudo systemctl start kube-apiserver
+$ sudo systemctl start kube-controller-manager
+$ sudo systemctl start kube-scheduler
+$ sudo systemctl start kubelet
+$ sudo systemctl start kube-proxy
+```
+> 以上k8s服务包含了主从节点的服务，如果是分布式安装则不需要安装以上全部，从(node)服务只需要安装kubelet和kube-proxy即可。
+
+
+安装并检查k8s状态为运行成功后，K8S单节点主从就算是安装成功了。
+
+跑个DEMO测试服务，编写以下的资源清单内容：
+
+- tomcat.rc.yaml
+
+```yaml
+apiVersion: v1
+kind: ReplicationController
+metadata:
+ name: mytomcat
+spec:
+ replicas: 2
+ selector:
+  app: mytomcat
+ template:
+  metadata:
+   labels:
+    app: mytomcat
+  spec:
+   containers:
+   - name: mytomcat
+     image: tomcat:7-jre7
+     ports:
+     - containerPort: 8080
+```
+
+- tomcat.svc.yaml
+
+```sh
+apiVersion: v1
+kind: Service
+metadata:
+ name: mytomcat
+spec:
+ type: NodePort
+ ports:
+ - port: 8080
+   nodePort: 32767
+ selector:
+  app: mytomcat
+```
+
+> 注意:yaml文件严格区分缩进和空格。
+> nodePort即为映射暴露的端口，默认开放的端口范围是`30000-32767`，不在默认端口范围内都会报错。
+> provided port is not in the valid range. The range of valid ports is 30000-32767
+
+运行应用：
+```sh
+$ kubectl create -f mytomcat.rc.yaml
+$ kubectl create -f mytomcat.svc.yaml
+```
+如果运行正常后可以使用命令查看服务是否正常启动
+```sh
+$ kubectl get pods
+```
+如果状态是Runing，则启动成功。这是就可以通过服务器地址加上上面的`nodePort`访问到tomcat服务了。
+
+在下一篇中，将介绍K8S的常用命令及资源清单的说明。
+
+## 可能出现的问题
+
+### No resources found问题
+
+解决方法：
+- vim /etc/kubernetes/apiserver
+- 找到”KUBE_ADMISSION_CONTROL="-
+admission_control=...."这段配置，去掉ServiceAccount。保存退出。
+- systemctl restart kube-apiserver。重启服务。
+
+
+### 使用kubectl desccribe pods name时pause失败
+注意上面的配置文件拉取镜像时可能会卡住，尤其是使用国内的服务器，如果使用国外的服务器不容易产生这个问题。这个问题由于k8s有从http://k8s.gcr.io/拉取pause镜像,这个网站被国内墙了无法访问所以会造成k8s无法正常启动应用。(pods的READY不为1/1,且STATUS不为Runing状态）可以使用以下命令查看和排查：
+
+```sh
+$ kubectl get pods #查看服务
+$ kubectl describe pods pods名称
+``
+如果descibe中有报错信息，正如上面的描述。这时我们可以采用手动拉取pause镜像并推送到私有仓库。让kubectl使用我们的私有镜像pause地址而不是k8s.gcr.io地址即能解决。
+
+首先我们要先创建自己的私有仓库：
+[docker搭建私有仓库](https://www.linuxidc.com/Linux/2018-03/151308.htm)
+
+搭建完私有仓库后：
+- docker pull kubernetes/pause,拉取pause镜像
+- docker tag docker.io/kubernetes/pause:latest
+172.18.18.90:5000/k8s/pause-amd64.3.0 以私有仓库地址为镜像打标签
+- docker push 172.18.18.90:5000/k8s/pause-amd64.3.0,推送到私有仓库
+- vi /etc/kubernetes/kubelet配置为`KUBELET_ARGS="--
+pod_infra_container_image=172.18.18.90:5000/k8s/pause-amd64.3.0"`,指定kubelet使用的pause镜像地址
+-  systemctl restart kubelet,重启kubelet服务。
+
+(完）

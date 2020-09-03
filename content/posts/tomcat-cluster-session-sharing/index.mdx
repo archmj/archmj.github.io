@@ -1,0 +1,170 @@
+---
+title: Tomcat集群session共享
+date: 2020-03-23 23:26
+slug: "/tomcat-cluster-session-sharing.html"
+tags:
+  - tomcat
+---
+
+## tomcat session复制
+取消注释
+```xml
+<Cluster className="org.apache.catalina.ha.tcp.SimpleTcpCluster"/>
+```
+> 这一行配置等同于下面的配置文件，开启一个即可，下面的配置可以修改配置信息
+```xml
+<Cluster className="org.apache.catalina.ha.tcp.SimpleTcpCluster"
+                 channelSendOptions="8">
+
+          <Manager className="org.apache.catalina.ha.session.DeltaManager"
+                   expireSessionsOnShutdown="false"
+                   notifyListenersOnReplication="true"/>
+
+          <Channel className="org.apache.catalina.tribes.group.GroupChannel">
+            <Membership className="org.apache.catalina.tribes.membership.McastService"
+                        address="228.0.0.4"
+                        port="45564"
+                        frequency="500"
+                        dropTime="3000"/>
+            <Receiver className="org.apache.catalina.tribes.transport.nio.NioReceiver"
+                      address="auto"
+                      port="4000"
+                      autoBind="100"
+                      selectorTimeout="5000"
+                      maxThreads="6"/>
+
+            <Sender className="org.apache.catalina.tribes.transport.ReplicationTransmitter">
+              <Transport className="org.apache.catalina.tribes.transport.nio.PooledParallelSender"/>
+            </Sender>
+            <Interceptor className="org.apache.catalina.tribes.group.interceptors.TcpFailureDetector"/>
+            <Interceptor className="org.apache.catalina.tribes.group.interceptors.MessageDispatch15Interceptor"/>
+          </Channel>
+
+          <Valve className="org.apache.catalina.ha.tcp.ReplicationValve"
+                 filter=""/>
+          <Valve className="org.apache.catalina.ha.session.JvmRouteBinderValve"/>
+
+          <Deployer className="org.apache.catalina.ha.deploy.FarmWarDeployer"
+                    tempDir="/tmp/war-temp/"
+                    deployDir="/tmp/war-deploy/"
+                    watchDir="/tmp/war-listen/"
+                    watchEnabled="false"/>
+
+          <ClusterListener className="org.apache.catalina.ha.session.JvmRouteSessionIDBinderListener">
+          <ClusterListener className="org.apache.catalina.ha.session.ClusterSessionListener">
+        </Cluster>
+```
+修改上面的`address="auto"`为对应的集群地址。
+## tomcat redis存放session
+### tomcat-redis-session-manager
+刚开始使用的是这种方法，这个只支持tomcat7并且作者已经很久没有更新了。
+```xml
+<Valve className="com.orangefunction.tomcat.redissessions.RedisSessionHandlerValve" />
+<Manager className="com.orangefunction.tomcat.redissessions.RedisSessionManager"
+         host="localhost" <!-- optional: defaults to "localhost" -->
+         port="6379" <!-- optional: defaults to "6379" -->
+         database="0" <!-- optional: defaults to "0" -->
+         maxInactiveInterval="60" <!-- optional: defaults to "60" (in seconds) -->
+         sessionPersistPolicies="PERSIST_POLICY_1,PERSIST_POLICY_2,.." <!-- optional -->
+         sentinelMaster="SentinelMasterName" <!-- optional -->
+         sentinels="sentinel-host-1:port,sentinel-host-2:port,.." <!-- optional --> />
+```
+> 按上面的配置然后下载下面的jar包运行tomcat报`class not found`的问题，原因是jar包的路径名称已经修改了。
+
+复制下面三个jar包到tomcat的`lib`目录下：
+
+[tomcat-redis-session-manager-VERSION.jar](https://github.com/jcoleman/tomcat-redis-session-manager/downloads)
+下面这两个去maven仓库搜索下载jar
+jedis-2.5.2.jar
+commons-pool2-2.2.jar
+
+### redisson-tomcat
+tomcat中启用Redisson前提：在lib下添加两个[jar包](https://github.com/redisson/redisson/tree/master/redisson-tomcat#2-copy-two-jars-into-tomcat_baselib-directory)
+这个支持tomcat现有的版本（6，7，8，9）。
+
+`$catalina_home/conf/context.xml`当中指定redisson：
+```xml
+<!-- 单Redis Session共享管理 -->
+<Manager className="org.redisson.tomcat.RedissonSessionManager" configPath="${catalina.base}/conf/redission-single.json" readMode="REDIS" updateMode="DEFAULT"/>
+<Manager className="org.redisson.tomcat.RedissonSessionManager" configPath="${catalina.base}/conf/redission-single.json" readMode="MEMORY" updateMode="AFTER_REQUEST"/>
+<!-- 多Redis集群 Session共享管理 -->
+<Manager className="org.redisson.tomcat.RedissonSessionManager" configPath="${catalina.base}/conf/redission-cluster.json" readMode="REDIS" updateMode="DEFAULT"/>
+```
+创建Redisson配置信息
+redission-single.json内容：单redis情况
+```json
+{
+    "singleServerConfig": {
+        "idleConnectionTimeout": 10000,
+        "pingTimeout": 1000,
+        "connectTimeout": 10000,
+        "timeout": 3000,
+        "retryAttempts": 3,
+        "retryInterval": 1500,
+        "password": null,
+        "subscriptionsPerConnection": 5,
+        "clientName": null,
+        "address": "redis://redis:6379",
+        "subscriptionConnectionMinimumIdleSize": 1,
+        "subscriptionConnectionPoolSize": 50,
+        "connectionMinimumIdleSize": 32,
+        "connectionPoolSize": 64,
+        "database": 0,
+        "dnsMonitoringInterval": 5000
+    },
+    "threads": 0,
+    "nettyThreads": 0,
+    "codec": {
+        "class": "org.redisson.codec.SerializationCodec"
+    },
+    "transportMode": "NIO"
+}
+```
+redission-cluster.json内容：多redis情况，只需配置从redis地址
+```json
+{
+    "clusterServersConfig": {
+        "idleConnectionTimeout": 10000,
+        "pingTimeout": 1000,
+        "connectTimeout": 10000,
+        "timeout": 3000,
+        "retryAttempts": 3,
+        "retryInterval": 1500,
+        "failedSlaveReconnectionInterval": 3000,
+        "failedSlaveCheckInterval": 60000,
+        "password": null,
+        "subscriptionsPerConnection": 5,
+        "clientName": null,
+        "loadBalancer": {
+            "class": "org.redisson.connection.balancer.RoundRobinLoadBalancer"
+        },
+        "subscriptionConnectionMinimumIdleSize": 1,
+        "subscriptionConnectionPoolSize": 50,
+        "slaveConnectionMinimumIdleSize": 32,
+        "slaveConnectionPoolSize": 64,
+        "masterConnectionMinimumIdleSize": 32,
+        "masterConnectionPoolSize": 64,
+        "readMode": "SLAVE",
+        "subscriptionMode": "SLAVE",
+        "nodeAddresses": [
+            "redis://127.0.0.1:7004",
+            "redis://127.0.0.1:7001",
+            "redis://127.0.0.1:7000"
+        ],
+        "scanInterval": 1000,
+        "pingConnectionInterval": 0,
+        "keepAlive": false,
+        "tcpNoDelay": false
+    },
+    "threads": 0,
+    "nettyThreads": 0,
+    "codec": {
+        "class": "org.redisson.codec.SerializationCodec"
+    },
+    "transportMode": "NIO"
+}
+```
+
+实际存储的类型是hash，key类似`redisson:tomcat_session:1CF4CF29EADCB3695FDB8E183B69A523`。
+
+(完）

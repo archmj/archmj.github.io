@@ -1,0 +1,55 @@
+---
+title: 清理docker磁盘空间
+date: 2020-04-29 22:46
+slug: "/clean-up-docker-disk-space.html"
+tags:
+  - docker
+---
+
+docker的`image`和`container`会占用大量的磁盘空间，所以应该定期清理无用docker磁盘空间。docker提供了`docker system`命令及手动清理的方式清理空间。
+
+###　docker system命令
+
+清理磁盘，删除关闭的容器、无用的数据卷和网络，以及dangling镜像（即无tag的镜像),使用命令：
+
+```bash
+docker system prune
+
+WARNING! This will remove:
+  - all stopped containers
+  - all networks not used by at least one container
+  - all dangling images
+  - all dangling build cache
+
+Are you sure you want to continue? [y/N]
+```
+
+或者清理得更加彻底，可以将没有容器使用Docker镜像都删掉:
+
+```bash
+docker system prune -a
+```
+
+> 注意:这两个命令会把你暂时关闭的容器，以及暂时没有用到的Docker镜像都删掉
+
+
+### 手动清理
+在没有‘docker system‘命令时，可以使用手动操作进行清理。
+
+删除所有关闭的容器：
+
+```bash
+docker ps -a | grep Exit | cut -d ' ' -f 1 | xargs docker rm
+```
+
+删除所有dangling镜像（即无tag的镜像）
+
+```bash
+docker rmi $(docker images | grep "^<none>" | awk "{print $3}")
+```
+
+删除所有dangling数据卷（即无用的Volume）
+
+```bash
+docker volume rm $(docker volume ls -qf dangling=true)
+```

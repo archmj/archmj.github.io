@@ -1,0 +1,63 @@
+---
+title: docker安装fastdfs
+date: 2020-04-29 10:01
+slug: "/user-docker-instal-fastdfs.html"
+tags:
+  - docker
+  - fastdfs
+---
+
+搜索fastdfs镜像：
+
+```bash
+docker search fastdfs
+NAME                           DESCRIPTION                                     STARS               OFFICIAL            AUTOMATED
+season/fastdfs                 FastDFS                                         63
+luhuiguo/fastdfs               FastDFS is an open source high performance d…   24                                      [OK]
+```
+
+选择**STARS`数最多的作为镜像并拉取：
+
+```bash
+docker image pull season/fastdfs
+```
+
+在宿主机中新建目录用,于存放fastdfs配置文件和数据:
+```bash
+mkdir -p ~/docker/fastdfs/etc
+mkdir -p ~/docker/fastdfs/data/storage_data
+mkdir -p ~/docker/fastdfs/data/store_path
+mkdir -p ~/docker/fastdfs/data/tracker_data
+
+```
+启动容器:
+```bash
+docker run--name fdfs --net=host season/fastdfs
+```
+
+查看容器id:
+```
+docker ps -aq --filter name=fdfs
+```
+根据查到的容器id,复制fdfs的配置到宿主机的配置文件夹：
+docker cp 66a27dc049f7:/fdfs_conf/. ~/docker/fastdfs/etc
+
+
+修改tracker.conf：
+
+```properties
+base_path=/fastdfs/storage
+```
+
+storage.conf主要修改如下：
+
+```properties
+tracker_server=192.168.8.105:22122
+```
+> 修改为宿主机的ip
+
+启动tracker:
+```bash
+docker run -itd --name  fdfs_tracker1 -v ~/docker/fastdfs/data/tracker_data/data:/fastdfs/tracker -v ~/docker/fastdfs/etc:/fdfs_conf --privileged=true --net=host  season/fastdfs tracker
+```
+docker run -tid --name  tracker -v

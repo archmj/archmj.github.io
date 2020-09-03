@@ -1,0 +1,269 @@
+---
+title: GNU/Linux系统安全强化的几个步骤
+date: 2020-04-09 22:43
+slug: "/several-steps-of-gnu-linux-system-security-hardening.html"
+tags:
+  - typecho
+---
+
+互联网上的攻击扫描无处不在，为了提高网站的安全性，可以给新的服务器或者已有的服务器做下安全加固。通过下面的步骤可以大大提高服务器的安全性。
+
+### 更新系统
+Ubuntu和 Debian:
+```sh
+$ sudo apt update && sudo apt upgrade -y
+ ```
+
+ Fedora
+ ```sh
+ $ sudo dnf upgrade
+ ```
+
+ Centos
+```sh
+$sudo yum update
+```
+
+Archlinux
+```sh
+$ sudo pacman Syu
+```
+
+> 注意以上只会更新系统版本，不会升级内核（Arch除外是滚动更新）
+
+
+### 升级内核
+注意，默认只会升级到仓库的最新内核版本。而不是Linux Kernel的最新版本。我们可以通过第三方仓库升级。
+
+```sh
+# rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
+
+# rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-2.el7.elrepo.noarch.rpm
+```
+
+添加仓库源后，可以通过以下命令列出可用的系统内核包。
+```sh
+# yum --disablerepo="*" --enablerepo="elrepo-kernel" list available
+```
+
+安装主干文档版本内容：
+
+```sh
+# yum --enablerepo=elrepo-kernel install kernel-ml
+```
+安装后重启检查内核
+```sh
+# reboot
+# uname -r
+```
+
+重启后发现内核并没有切换到最新的版本。
+
+编辑`/etc/default/grub `文件，将内容中的**GRUB_DEFAULT**属性
+
+```sh
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR="$(sed 's, release .*$,,g' /etc/system-release)"
+GRUB_DEFAULT=saved
+GRUB_DISABLE_SUBMENU=true
+GRUB_TERMINAL_OUTPUT="console"
+GRUB_CMDLINE_LINUX="crashkernel=auto   net.ifnames=0 console=tty0 console=ttyS0,115200n8"
+GRUB_DISABLE_RECOVERY="true"
+```
+
+修改为：
+```sh
+GRUB_DEFAULT=0
+```
+> 表示GRUB 初始化页面的第一个内核将作为默认内核.
+
+运行下面的命令来重新创建内核配置：
+
+```sh
+# grub2-mkconfig -o /boot/grub2/grub.cfg
+```
+
+###　清理内核包
+升级完到最新的内核后，可以把旧的内核包清理掉。查看内核 RPM包：
+```sh
+# rpm -qa |grep kernel
+kernel-3.10.0-514.26.2.el7.x86_64
+kernel-ml-5.4.8-1.el7.elrepo.x86_64
+kernel-tools-libs-3.10.0-1062.9.1.el7.x86_64
+kernel-tools-3.10.0-1062.9.1.el7.x86_64
+kernel-headers-3.10.0-1062.9.1.el7.x86_64
+kernel-3.10.0-1062.9.1.el7.x86_64
+kernel-3.10.0-514.el7.x86_64
+```
+
+删除３.10.0的包
+
+```sh
+# rpa -qa |gre kernel |grep 3.10.0 | xargs yum remove
+```
+
+删除后重新启动系统即可。
+
+## 创建sudo用户
+
+##＃ centos7
+新建用户：
+
+```sh
+# adduser <username>
+```
+
+重置密码：
+```sh
+# passwd <username>
+```
+
+##  sudo user
+```sh
+# usermod -aG wheel <username>
+```
+
+## 配置ssh密钥
+
+使用`ssh-copy-id`命令将预先生成的密钥上传到服务器。
+```sh
+$ ssh-copy-id <username>@ip_address
+```
+这样，以后就无需输入密码远程登录到服务器。
+
+## 限制访问
+
+ 1. 禁用**SSH**密码认证
+ 2. 限制**ROOT**用户远程登录
+ 3. 限制**IPV$**或**IPV6**的访问
+
+即编辑`/etc/ssh/sshd_config`:
+
+```config
+PasswordAuthentication no
+PermitRootLogin no
+```
+
+修改**AddressFamily**选项限制**IPV4**或**IPV6**
+
+```config
+AddressFamily inet
+```
+重启**SSH**服务生效。
+
+在**Systemctl**管理服务的系统上重启**SSH**：
+```sh
+$ sudo systemctl restart sshd
+```
+
+## 防火墙
+
+Ubuntu 和 Debian:
+
+```sh
+$ sudo apt install ufw
+```
+
+RHEL和Centos
+
+```sh
+$ yum -y install firewall-cmd
+```
+
+> centos默认安装了这个
+
+Archlinux和Manjaro:
+
+```sh
+$ sudo pacman -S ufw
+```
+
+**UFW**默认拒绝所有传入连接，允许所有传出连接。
+
+设置允许传入的连接：
+
+```sh
+$ sudo ufw allow ssh
+$ sudo ufw allow http
+$ sudo ufw allow https
+```
+
+启用**UFW**:
+
+```sh
+$ sudo ufw enable
+```
+
+查看状态：
+
+```sh
+$ sudo ufw status
+```
+
+禁用**UFW**:
+
+```sh
+$ sudo ufw disable
+```
+
+## 安装Fail2ban
+
+**Fail2ban**可以根据规则阻止攻击者的**IP**。
+
+Ubuntu和 Debian:
+```sh
+$ sudo apt install fail2ban -y
+```
+Archlinux和Manjaro:
+```sh
+$ sudo pacman -S fail2ban
+```
+
+复制配置文件：
+
+```sh
+$ sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+```
+
+编辑jail.local文件
+```sh
+[sshd]
+enabled = true
+```
+
+重启**Fail2ban**:
+
+```sh
+$ sudo systemctl restart fail2ban
+```
+**Fail2ban**软件将不断检查日志文件以查找攻击。
+
+查看状态：
+
+```sh
+$ sudo fail2ban-client status ssh
+```
+
+## 移除无用的网络服务
+
+使用`ss`命令查看正在运行的网络服务：
+```sh
+$ sudo ss -atpu
+```
+删除无用的网络服务：
+
+
+Ubuntu和Debian：
+
+```sh
+$ sudo apt purge <service_name>
+```
+
+RHEL和Centos:
+
+```sh
+$ sudo yum remove <service_name>
+```
+
+(完)
+

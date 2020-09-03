@@ -1,0 +1,74 @@
+---
+title: 服务器主机安全设置 
+date: 2020-03-24 08:58
+slug: "/server-host-security-settings.html"
+tags:
+  - ssh
+---
+
+## ssh安全设置
+使用lastb查询登入信息
+```sh
+sudo lastb|awk '{print $1}' |sort |uniq -c |sort -n -k 1 |tail
+      1
+      1 btmp
+      4 admin
+
+```
+
+确定 sshd_config 的权限
+确定 sshd_config 只有root才能读写，其他用户不能进行任何操作
+
+```sh
+sudo chown root:root /etc/ssh/sshd_config
+sudo chmod og-rwx /etc/ssh/sshd_config
+```
+修改ssh服务端口
+```sh
+vim /etc/ssh/sshd_config
+Port ** #找到Port并修改
+```
+启用SSH Protocol 2
+```sh
+Protocol 2 # 若没在ssh_config找到自行添加
+```
+不允许空密码登陆
+ ```sh
+PermitEmptyPasswords no
+ ```
+不允许root登陆
+```sh
+PermitRootLogin no # 用普通用户su切换到root或sudo权限
+```
+禁止root用密码登陆（允许root登入并配置密钥）
+```sh
+PermitRootLogin prohibit-password
+```
+
+限制只能登陆特定用户,用DenyUsers, AllowUsers, DenyGroups 和 AllowGroups 关键字来限定允许登陆的用户。
+
+当某个用户登陆时，该用户依次经过 DenyUsers, AllowUsers, DenyGroups 和 AllowGroups 的测试，只有在所有测试都通过的情况下才允许登陆。
+```sh
+AllowUsers ramesh john jason
+AllowGroups sysadmin dba
+DenyUsers cvs apache jane
+DenyGroups developers qa
+```
+修改未登陆的超时时间,默认120秒后会登出。
+```sh
+LoginGraceTime 1m
+```
+>若该值缩减为 0 则表示没有时间限制
+
+设置会话空闲一段时间后自动退出
+1. 在 ~/.bash_profile 中加上
+```sh
+export TMOUT=100
+```
+2. 设置 sshd_config
+```sh
+ClientAliveInterval 100
+ClientAliveCountMax 0
+```
+
+(完）

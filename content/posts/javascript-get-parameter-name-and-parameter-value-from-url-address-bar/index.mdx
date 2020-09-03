@@ -1,0 +1,93 @@
+---
+title: javascript从URL地址栏获取参数名和参数值
+date: 2020-04-05 20:59
+slug: "/javascript-get-parameter-name-and-parameter-value-from-url-address-bar.html"
+tags:
+  - javascript
+---
+
+### Location
+`Location`是`Window`对象的一个部分，可通过`window.location`属性来访问。
+属性  |	描述
+---- | ------
+hash	 |	设置或返回从井号 (#) 开始的 URL（锚）。
+host	 |	设置或返回主机名和当前 URL 的端口号。
+hostname	 |	设置或返回当前 URL 的主机名。
+href	 |	设置或返回完整的 URL。
+pathname	 |	设置或返回当前 URL 的路径部分。
+port	 |	设置或返回当前 URL 的端口号。
+protocol	 |	设置或返回当前 URL 的协议。
+search	 |	设置或返回从问号 (?) 开始的 URL（查询部分）。
+
+### `window.location.search`取值
+
+`URL`中“?”之前有一个“#”：“https://maojun.xyz/index.html#/version?name=tomcat&release=8”，则使用window.location.search得到的就是空（“”）。
+因为“?name=tomcat&release=8”是属于“#/version?name=tomcat&release=8”这个串字符的，也就是说查询字符串search只能在取到“?”后面和“#”之前这个区间的内容，如果“#”之前没有“?”，`search`取值为空。
+
+### 正则表达式取值:
+
+```js
+function getUrlSearch(name) {
+  // 未传参，返回空
+  if (!name) return null;
+  // 查询参数：先通过search取值，如果取不到就通过hash来取
+  var after = window.location.search;
+  after = after.substr(1) || window.location.hash.split('?')[1];
+  // 地址栏URL没有查询参数，返回空
+  if (!after) return null;
+  // 如果查询参数中没有"name"，返回空
+  if (after.indexOf(name) === -1) return null;
+
+  var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)');
+  // 当地址栏参数存在中文时，需要解码，不然会乱码
+  var r = decodeURI(after).match(reg);
+  // 如果url中"name"没有值，返回空
+  if (!r) return null;
+
+  return r[2];
+}
+
+// 调用方法
+getUrlSearch("参数名");
+
+// 举例1:若地址栏URL为：abc.html?id=123&name=池子&url=http://www.baidu.com
+console.log('地址栏参数id',getUrlSearch("id"));
+console.log('地址栏参数name',getUrlSearch("name"));
+console.log('地址栏参数url',getUrlSearch("ursl"));
+// 123
+// 池子(不解码此处是乱码)
+// null
+
+
+// 举例2:若地址栏URL为：abc.html
+console.log('地址栏参数id',getUrlSearch("id"));
+// null
+```
+
+### 传统方法
+
+```js
+<script type="text/javascript">
+function UrlSearch()
+{
+   var name,value;
+   var str=location.href; //取得整个地址栏
+   var num=str.indexOf("?")
+   str=str.substr(num+1); //取得所有参数   stringvar.substr(start [, length ]
+
+   var arr=str.split("&"); //各个参数放到数组里
+   for(var i=0;i < arr.length;i++){
+    num=arr[i].indexOf("=");
+    if(num>0){
+     name=arr[i].substring(0,num);
+     value=arr[i].substr(num+1);
+     this[name]=value;
+     }
+    }
+}
+var Request=new UrlSearch(); //实例化
+alert(Request.id);
+</script>
+```
+
+（完）

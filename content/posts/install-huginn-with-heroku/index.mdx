@@ -1,0 +1,71 @@
+---
+title: 使用heroru安装Huginn
+date: 2020-03-26 06:55
+slug: "/install-huginn-with-heroku.html"
+tags:
+  - heroru
+  - huginn
+---
+
+## 介绍
+heroru是一个提供Pass(平台即服务)服务的云平台。可以让开发者快速构建，分发，监控和伸缩应用服务。heroru官网提供了免费版本和收费版本。免费版本功能有所限制，但是对于个人用户而言已经足够使用。
+
+### 免费版限制
+使用 Heroku 免费方案的用户，其每个网站在 30 分钟内无人访问后便会自动关闭，再有人访问时才会自动重新打开，因此为了使 Huginn 网站能长时间运行，可以使用类似 uptimerobot 的网站监控服务，不停地ping你的 Huginn 网站地址。
+
+Heroku 免费方案只允许用户所有的 app 每个月运行的总时长不超过 550 个小时（绑定信用卡的用户可额外再获得 450 个小时），这意味着你无法保证部署好的 Huginn 网站每个月每天都在运行，因此，你可选择绑定信用卡，或者让你的 Huginn 网站每天只允许 18 个小时，这样的话，你的网站每天都可以在运行。
+
+Heroku免费方案提供给用户的 Postgres 数据库存储的数据不能超过 10000 行，因此你需要控制 Agent 生成的事件的保留周期，同时限制数据库中 Agent 日志文件的长度，比如 heroku config:set AGENT_LOG_LENGTH=20。
+
+## 环境变量
+Archlinux:
+提前安装好以下依赖：
+- `ruby`
+- `gem`
+- `bundle`
+-  libmysqlclient
+
+## 安装
+
+要使用heroku服务首先需要注册一个账号。去heroku.com官网注册一个即可。
+
+安装Heroku命令行工具**Heroku Toolbelt**,这个同样去官网下载，如果是使用**pacman**包管理的系统，添加**archlinux-cn**源后，直接使用**pacman**或者**yay**就可以 下载了
+
+```sh
+$ yay heroku-toolbelt
+```
+安装后,在命令行登入账号:
+
+```sh
+$ heroku login
+```
+ 输入上面的命令后heroku会打开浏览器窗口进行账号认证。
+
+接着使用**git**下载**huginn**代码：
+
+```sh
+$ git clone  https://github.com/huginn/huginn.git
+```
+然后进入下载后的**huginn**目录:
+```sh
+$ cd huginn
+```
+进入后运行以下命令:
+```sh
+$  cp .env.example .env && bundle
+```
+执行完后，进入`bin`目录直接安装
+```sh
+bin/setup_heroku
+```
+如果你做了修改，可以 重新运行`bin/setup_heroku`命令。
+完成后将其推送到heroku仓库
+```sh
+$ git push heroku master.
+```
+(完）
+
+参考链接：
+
+[heruku install huginn](https://github.com/huginn/huginn/blob/master/doc/heroku/install.md)
+[mysql2 error](https://stackoverflow.com/questions/45474191/an-error-occurred-while-installing-mysql2-0-4-8-and-bundler-cannot-continue)

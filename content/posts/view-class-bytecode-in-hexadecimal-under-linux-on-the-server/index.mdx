@@ -1,0 +1,50 @@
+---
+title: 服务端linux下用十六进制查看class字节码
+date: 2020-05-08 21:56
+slug: "/view-class-bytecode-in-hexadecimal-under-linux-on-the-server.html"
+tags:
+  - linux
+---
+
+一般都是将`java`代码编译成字节码`class`文件打包成`war`或者`jar部署到服务端，如果使用`Tocmat`部署`War`包，`Tomcat`部署后会自动解压一个以`War`包名的文件夹，里面包含了`java`的`class`文件以及静态资源和配置文件。
+
+### linux下查看十六进制
+在服务端下查看class文件，如果直接用`Vim`等编辑器打开默认显示的是二进制乱码。如果要以十六进制查看class文件则需要使用对应的工具，`GNU/Linux`下可以使用`xxd`命令，将二进制信息转换为十六进制数据:
+
+```
+$ xxd foo.class bar.txt
+```
+
+生成的`bar.txt`里面保存了`class`文件的十六进制，就可以通过编辑器直接打开查看。
+
+但是这样会显得比较麻烦，如果能直接用编辑器打开查看就方便多了。
+
+### vim查看十六进制
+
+vim除了查看文件外，还可以在vim编辑器内调用外部命令：
+
+首先用vim直接打开`class`文件，结果是二进制乱码。接着使用`Vim`调用外部的`xdd`命令：
+
+切换到命令模式，即按Esc键，输入`:%!xxd`，即可以查看十六进制的`class`的字节码。
+
+如果需要还原为二进制内容则输入`:%!xxd -r`，即可以退出十六进制查看的方式。
+
+其他`Vim`命令：
+
+```
+:%!xxd :%!od 将当前文本转化为16进制格式
+:%!xxd -c 12 每行显示12个字节
+```
+
+### vim下文件头乱码
+
+但是使用`%!xxd`进行十六进制显示时，文件头显示为**3f3f 3f3f**,3f的ascii码是`?`，这可以和`Vim`解析时乱码有关系。因为上面通过`xxd foo.class bar.txt`查看文件是正常显示`java`的标识`cafe babe`的。由于我配置了`Vim`的自定义配置文件`.vimrc`，其中包含`set fileencodings=utf-8,gb2312,gbk,gb18030,ucs-bom`,所以`class`的文件头`cafe babe`不是任何一个中文的编码，vim找不到对应的中文字，就显示为??`，即：3f3f。
+
+
+### 解决办法
+直接使用`vim -u NONE -N class名称`，然后再配合`:%!xxd`命令就可以正常显示十六进制的文件头`cafe babe`了。
+
+`vim -u NONE -N`即`Vim`启动不加载`vimr`配置并且禁用`vi`兼容模式。
+
+
+

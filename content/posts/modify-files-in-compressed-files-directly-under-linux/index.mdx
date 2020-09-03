@@ -1,0 +1,68 @@
+---
+title: Linux下不解压直接修改压缩包内文件
+date: 2020-03-25 16:37
+slug: "/modify-files-in-compressed-files-directly-under-linux.html"
+tags:
+  - linux
+---
+
+我从Windows转到Linux发行桌面版是，就对在终端上完成一些工作产生痴迷。比如修改，复制，移动，删除文件等等。当然也在配合一些图形文件管理器来完成一些需要拖拽的工作，比如上传文件到FTP等等。
+之前一直都在图形文件管理器上对压缩包进行修改，我不太喜欢直接解压再打包而是直接修改，Archlinux上有一些好的工具可以帮助我更好的完成这些操作，但使用上都不是太满意。
+- zip是一款终端压缩软件，可以压缩解压jar，war，zip等类型文件
+- vim是一款强大的编辑器
+
+# 修改压缩包
+为了修改压缩包一些配置文件，之前都是用图形工具打开，鼠标双击编辑，保存等等。有的时候明明保存了重新打开又是原始的。这让我痛苦，我无法保证是否保存只能重复操作只为了检查。
+
+## vim修改压缩包文件
+vim可以直接打开压缩包，然后对想要的压缩文件进行编辑保存，一切都是vim的命令完成。修改后｀wp`就保存退出了。
+
+>  注意，viｍ要依赖zip工具来完成打开压缩包。
+
+
+## 往压缩包添加新内容
+这个如果用图形工具可以完成比较简单，鼠标打开压缩包，把想要添加的内容拖拽到压缩包里即可。　　　
+但是，在命令行上也可以快速完成，毕竟生产上的服务器没有图形终端工具，下载本地再上传也太费劲了。
+－ tar类型
+添加新文件到压缩包。
+```bash
+$ tar rvf  /path/to/archive.tar  /path/to/newfile.txt
+```
+或者用更新文件到压缩包，会添加更加轻量级。
+```bash
+$ tar uvf /path/to/archive.tar  /path/to/newfile.txt
+```
+
+- zip类型
+添加新文件。　　　
+```bash
+$ zip -rv zipfile.zip newfile.txt newfile1.txt
+```
+
+- jar类型
+添加新文件。
+```bash
+bash$ jar -uvf jarfile.jar newfile.txt
+```
+
+## 从压缩包删除文件
+- tar类型
+```bash
+$ tar -dvf archive.tar filename.txt
+```
+
+- zip类型
+```bash
+$ zip -d zipfile.zip filename.doc \*.txt
+```
+- jar类型
+```bash
+$ zip -d jarfile.jar file1.txt file2.txt
+```
+
+（完）
+
+参考链接：
+
+- [how to add new files into an archive file (tar, gz, zip) in linux (also delete files) – lost saloon](http://www.lostsaloon.com/technology/how-to-add-files-to-archive-file-in-linux-also-delete-files
+
