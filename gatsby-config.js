@@ -6,7 +6,26 @@ const shouldAnalyseBundle = process.env.ANALYSE_BUNDLE
 
 module.exports = {
   siteMetadata: {
+    // Used for the title template on pages other than the index site
+    siteTitle: `毛俊的博客`,
+    // Default title of the page
     siteTitleAlt: `毛俊的博客`,
+    // Can be used for e.g. JSONLD
+    siteHeadline: `毛俊的博客 - Jun Mao's Blog`,
+    // Will be used to generate absolute URLs for og:image etc.
+    siteUrl: `https://maojun.xyz`,
+    // Used for SEO
+    siteDescription: `毛俊的中文博客`,
+    // Will be set on the <html /> tag
+    siteLanguage: `en`,
+    // Used for og:image and must be placed inside the `static` folder
+    siteImage: `/banner.jpg`,
+    // Twitter Handle
+    author: `@imaojun`,
+    //  time format
+    formatString: `YYYY/MM/DD`,
+    // copy code 
+    showCopyButton: `true`,
   },
   plugins: [
     {
@@ -32,6 +51,10 @@ module.exports = {
             name: `Stackoverflow`,
             url: `https://stackoverflow.com/users/8951465`,
           },
+          {
+            name: `RSS`,
+            url: `https://maojun.xyz/rss`,
+          },
         ],
       },
     },
@@ -45,8 +68,8 @@ module.exports = {
     {
       resolve: `gatsby-plugin-manifest`,
       options: {
-        name: `minimal-blog - @lekoarts/gatsby-theme-minimal-blog`,
-        short_name: `maojun-blog`,
+        name: `毛俊的博客 - @maojun/JunMao's-blog`,
+        short_name: `JunMao's-blog`,
         description: `毛俊的博客`,
         start_url: `/`,
         background_color: `#fff`,
