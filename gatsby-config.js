@@ -22,16 +22,19 @@ module.exports = {
     siteImage: `/banner.jpg`,
     // Twitter Handle
     author: `@imaojun`,
-    //  time format
-    formatString: `YYYY/MM/DD`,
-    // copy code 
-    showCopyButton: `true`,
   },
   plugins: [
     {
       resolve: `@lekoarts/gatsby-theme-minimal-blog`,
       // See the theme's README for all available options
       options: {
+        //  time format
+        formatString: `YYYY/MM/DD`,
+        // copy code 
+        showCopyButton: true,
+        // rss title
+        feedTitle: `毛俊的博客 - @maojun/JunMao's-blog`,
+
         navigation: [
           {
             title: `Blog`,
