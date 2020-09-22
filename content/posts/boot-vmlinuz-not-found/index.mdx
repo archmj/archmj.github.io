@@ -1,0 +1,87 @@
+---
+title: manjaro无法启动出现“vmlinuz not found”错误
+date: 2020-09-22 
+slug: "/manjaro-boot-error-vmlinuz-not-found.html"
+tags:
+  - manjaro
+  - vmlinuz
+---
+
+![manjaro开机无法启动][1]
+
+解决步骤：:
+
+首先制作一个基于Manjaro的启动盘（桌面版本不限),笔记本使用U盘首先项进入引导。
+
+
+查看root分区的设备文件名:
+
+```sh
+$ sudo fdisk -l
+
+Disk /dev/sda: 223.57 GiB, 240057409536 bytes, 468862128 sectors
+Disk model: GALAX TA1D0240A
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: gpt
+Disk identifier: 006E0CE2-D87B-4DE9-9BDA-249B1B6151CF
+
+Device        Start       End   Sectors   Size Type
+/dev/sda1        34  83888127  83888094    40G Linux filesystem
+/dev/sda2  83888128  84150271    262144   128M Microsoft basic data
+/dev/sda3  84150272 468862094 384711823 183.4G Linux filesystem
+
+```
+查看到root所在的分区设备名称为**/dev/sda1**
+
+挂接root所在的分区设置:
+
+```sh
+$ sudo mount -t xfs /dev/sdb2 /mnt
+```
+
+> 注意:`xfs`为root所在分区的的文件系统类型。
+
+可以使用`lsblk`命令查看文件系统类型:
+
+```sh
+$ lsblk -f
+NAME   FSTYPE FSVER LABEL UUID                                 FSAVAIL FSUSE% MOUNTPOINT
+sda
+├─sda1 xfs                41efd809-4d88-415d-ba2d-130cf3d72d10    562M    99% /
+├─sda2 vfat   FAT32       DA2B-3462                             125.8M     0% /boot/efi
+└─sda3 ext4   1.0         6a1a0994-4c50-4fbd-b96d-a24201e1638f   29.1G    79% /home
+```
+
+安装更新:
+
+```
+$ sudo pacman -Sy arch-install-scripts
+```
+
+```
+# manjaro系统使用命令
+manjaro-chroot /mnt
+
+# 如果是archlinux则使用下面的命令
+# arch-chroot /mnt
+```
+
+更新系统:
+
+```sh
+$ sudo pacman -Sy linux
+```
+
+重启，以系统为首选引导项启动:
+
+```sh
+reboot
+```
+
+重启完成后，成功进入系统。
+
+(完）
+
+[1]: https://img.maojun.xyz/274856215.jpg
