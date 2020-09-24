@@ -1,0 +1,35 @@
+---
+title: 使用pageinfo手工分页list集合
+date: 2020-09-24 
+slug: "/use-pageinfo-manaul-paging-list-collection.html"
+tags:
+  - java
+  - list
+---
+
+使用`pageHelper`进行分页的使用，`pageHelper`可以直接对查询的结果集进行分页。如果查询结果集后没有直接返回，而是做了二步处理封装，再返回结果集。则`pageHelper`分页则无法生效，返回分页结果会不准确。
+
+
+采用手工对list分页并封装到pageinfo中:
+
+```java
+// init list
+List list =new ArrayList<>();
+...
+
+// create Page Obejcet
+Page page = new Page(pageNum, pageSize);
+// get list size
+int total = list.size();
+page.setTotal(total);
+// get startIndex and endIndex
+int startIndex = (pageNum - 1) * pageSize;
+int endIndex = Math.min(startIndex + pageSize,total);
+// paging
+page.addAll(list.subList(startIndex,endIndex));
+// add to pageinfo
+PageInfo pageInfo = new PageInfo<>(page);
+modelAndView.addObject("pageInfo", pageInfo);
+```
+
+(完）
