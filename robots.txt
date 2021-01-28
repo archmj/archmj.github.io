@@ -1,0 +1,3 @@
+User-agent: *
+
+sitemap: https://maojun.xyz/sitemap.xml
